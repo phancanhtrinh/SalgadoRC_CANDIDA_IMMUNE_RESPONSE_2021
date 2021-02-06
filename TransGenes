@@ -1,0 +1,24 @@
+BiocManager::install("MAGeCKFlute")
+library(MAGeCKFlute)
+
+#import your data (geneList)
+remove(ge)
+
+#run TransGeneID
+
+ge <- TransGeneID(
+  c..au.x.alb.genes.in.common$ID,
+  fromType = "Symbol",
+  toType = "Entrez",
+  organism = "hsa",
+  ensemblHost = "www.ensembl.org",
+  update = FALSE)
+
+converted <- data.frame(ge)
+head(converted)
+#export
+library("writexl")
+
+getwd()
+
+write_xlsx(converted,"/Users/ranierics/Desktop/Analises/DataSets /PBMCs datasets/GSE154911 PBMCs (2)/C. auris/Convertd.xlsx")
