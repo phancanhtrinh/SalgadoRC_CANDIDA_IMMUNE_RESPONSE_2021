@@ -1,0 +1,34 @@
+BiocManager::install("CEMiTool")
+library("CEMiTool")
+library(ggplot2)
+
+# Import GMT file
+gmt_in <- read_gmt("Human_geneset.gmt")
+
+# run cemitool
+
+# Filter FALSE
+cem <- cemitool(expr0, sample_annot, gmt_in, int_df, 
+                  filter=FALSE, plot=TRUE, verbose=TRUE, apply_vst=TRUE)
+
+cem1 <- c(M1 = "red", M2 = "red", M3 = "red", M4 = "red", M5  = "red", 
+                     M6  = "red", M7  = "red", M8  = "red", 
+                     M9 = "red", M10  = "red", M11  = "red", M12  = "red", M13 = "red")
+
+mod_colors(cem) <- cem1
+
+#Filter TRUE. when working with MicroArray data, place apply_vst=FALSE, when RNAseq -> true
+cem <- cemitool(expr0, sample_annot, gmt_in, int_df, 
+                filter=TRUE, plot=TRUE, verbose=TRUE, apply_vst=FALSE, min_ngen=15, n_genes=4000)
+
+# create report as html document
+generate_report(cem, directory="./ReportGSE42606", force=TRUE)
+
+# write analysis results into files
+
+write_files(cem, directory="./Tables", force=TRUE)
+
+# save all plots
+
+save_plots(cem, "all", directory="./Plots", force = TRUE)
+
