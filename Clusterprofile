@@ -1,0 +1,202 @@
+a#Import your dataset
+#Col1 (Genes ID in Entrez form)
+#Col2 (LogFoldChange)
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("clusterProfiler")
+BiocManager::install("org.Hs.eg.db")
+
+
+
+BiocManager::install("clusterProfiler")
+BiocManager::install("ReactomePA")
+BiocManager::install("DOSE")
+BiocManager::install("enrichplot")
+
+
+#Access libraries
+library(DOSE)
+library(enrichplot)
+library(ReactomePA)
+library(clusterProfiler)
+library(viridis)
+library(ggplot2)
+
+#Run Enrichment
+
+geneList <- read.delim("GSE42606 PBMCs Up.txt")
+
+  nomes <- CaurisCluster.Profiler$ID
+valores <- CaurisCluster.Profiler$logFC
+names(valores) <- nomes
+genevector <- names(valores)
+
+edo <- enrichPathway(genevector)
+egoCC <- enrichGO(genevector, ont="CC",  OrgDb = "org.Hs.eg.db")
+egoBP <- enrichGO(genevector, ont="BP",  OrgDb = "org.Hs.eg.db")
+egoMF <- enrichGO(genevector, ont="MF",  OrgDb = "org.Hs.eg.db")
+
+edox <- setReadable(edo, 'org.Hs.eg.db', 'ENTREZID')
+egoxCC <- setReadable(egoCC, 'org.Hs.eg.db', 'ENTREZID')
+egoxBP <- setReadable(egoBP, 'org.Hs.eg.db', 'ENTREZID')
+egoxMF <- setReadable(egoMF, 'org.Hs.eg.db', 'ENTREZID')
+
+###############################################################
+## PLOTS (Pahtways)
+
+#Dot plot of enriched terms.
+dotplot(edo, showCategory=30) + ggtitle("dotplot for ORA") +   scale_color_continuous()
+
+
+#Network plot of enriched terms.
+p1 <- cnetplot(edox, foldChange=valores) 
+p2 <- cnetplot(edox, foldChange=valores, circular = TRUE, colorEdge = TRUE) 
+cowplot::plot_grid(p2, ncol=1, rel_widths=c(1, 1)) 
+
+
+
+#After running this, you should run the enrichment again
+edo <- enrichPathway(genevector)
+edox <- setReadable(edo, 'org.Hs.eg.db', 'ENTREZID')
+
+View(edox@result)
+#choose your pathways
+goid <- c("R-HSA-913531", "R-HSA-909733", "R-HSA-877300", "R-HSA-168898", "R-HSA-975155")
+edox@result <- edox@result[goid, ]
+
+#Labelling nodes by selected subset
+p3 <- cnetplot(edox, node_label="none")
+p4 <- cnetplot(edox, node_label="gene") 
+p5 <- cnetplot(edox, node_label="category") 
+p6 <- cnetplot(edox, node_label ="all", colorEdge = FALSE) 
+cowplot::plot_grid(p6, ncol=1) 
+
+#Heatmap plot of enriched terms
+p7 <- heatplot(edox)
+p8 <- heatplot(edox, foldChange=valores)
+cowplot::plot_grid(p8, ncol=1)
+
+#Plot for results obtained from hypergeometric test and gene set enrichment analysis.
+p9 <- emapplot(edo, line_scale = 0.1) 
+p10 <- emapplot(edo, pie_scale=1.5, line_scale = 0.1) 
+p11 <- emapplot(edo,layout="circle", line_scale = 0.1)
+p12 <- emapplot(edo, pie_scale=1.5,layout="kk", line_scale = 0.5) + scale_colour_gradient(
+  low = "#666666", 
+  high = "#039ACD",
+  space = "Lab",
+  na.value = "grey50",
+  guide = "colourbar",
+  aesthetics = "colour"
+)
+cowplot::plot_grid(p12, ncol=1)  
+
+###########################################################
+## PLOTS (CC)
+
+#Dot plot of enriched terms.
+dotplot(egoCC, showCategory=10) + ggtitle("dotplot for CC")
+
+#Network plot of enriched terms.
+p1 <- cnetplot(egoxCC, foldChange=valores)
+p2 <- cnetplot(egoxCC, foldChange=valores, circular = TRUE, colorEdge = TRUE)
+cowplot::plot_grid(p2, ncol=1, rel_widths=c(1, 1))
+
+#Labelling nodes by selected subset
+p3 <- cnetplot(egoxCC, node_label="none")
+p4 <- cnetplot(egoxCC, node_label="gene") 
+p5 <- cnetplot(egoxCC, node_label="category") 
+p6 <- cnetplot(egoxCC, node_label="all") 
+cowplot::plot_grid(p6, ncol=1)
+
+#Heatmap plot of enriched terms
+p7 <- heatplot(egoxCC)
+p8 <- heatplot(egoxCC, foldChange=valores)
+cowplot::plot_grid(p8, ncol=1)
+
+#Plot for results obtained from hypergeometric test and gene set enrichment analysis.
+p9 <- emapplot(egoCC)
+p10 <- emapplot(egoCC, pie_scale=1.5)
+p11 <- emapplot(egoCC,layout="kk")
+p12 <- emapplot(egoCC, pie_scale=1.5,layout="kk") 
+cowplot::plot_grid(p12, ncol=1)
+
+
+###############################################################
+## PLOTS (BP)
+#Dot plot of enriched terms.
+dotplot(egoBP, showCategory=30) + ggtitle("dotplot for BP") + scale_color_continuous()
+
+#Network plot of enriched terms.
+p1 <- cnetplot(egoxBP, foldChange=valores)
+p2 <- cnetplot(egoxBP, foldChange=valores, circular = TRUE, colorEdge = TRUE)
+cowplot::plot_grid(p2, ncol=1, rel_widths=c(1, 1))
+
+#Labelling nodes by selected subset
+p3 <- cnetplot(egoxBP, node_label="none")
+p4 <- cnetplot(egoxBP, node_label="gene") 
+p5 <- cnetplot(egoxBP, node_label="category") 
+p6 <- cnetplot(egoxBP, node_label="all") 
+cowplot::plot_grid(p6, ncol=1)
+
+#Heatmap plot of enriched terms
+p7 <- heatplot(egoxBP)
+p8 <- heatplot(egoxBP, foldChange=valores)
+cowplot::plot_grid(p8, ncol=1)
+
+#Plot for results obtained from hypergeometric test and gene set enrichment analysis.
+p9 <- emapplot(egoBP)
+p10 <- emapplot(egoBP, pie_scale=1.5)
+p11 <- emapplot(egoBP,layout="kk")
+p12 <- emapplot(egoBP, pie_scale=1.5,layout="kk") 
+cowplot::plot_grid(p12, ncol=1)
+
+
+###############################################################
+## PLOTS (MF)
+
+#Dot plot of enriched terms.
+dotplot(egoMF, showCategory=30) + ggtitle("dotplot for MF")
+
+#Network plot of enriched terms.
+p1 <- cnetplot(egoxMF, foldChange=valores)
+p2 <- cnetplot(egoxMF, foldChange=valores, circular = TRUE, colorEdge = TRUE)
+cowplot::plot_grid(p2, ncol=1, rel_widths=c(1, 1))
+
+#Labelling nodes by selected subset
+p3 <- cnetplot(egoxMF, node_label="none")
+p4 <- cnetplot(egoxMF, node_label="gene") 
+p5 <- cnetplot(egoxMF, node_label="category") 
+p6 <- cnetplot(egoxMF, node_label="all") 
+cowplot::plot_grid(p6, ncol=1)
+
+#Heatmap plot of enriched terms
+p7 <- heatplot(egoxMF)
+p8 <- heatplot(egoxMF, foldChange=valores)
+cowplot::plot_grid(p8, ncol=1)
+
+#Plot for results obtained from hypergeometric test and gene set enrichment analysis.
+p9 <- emapplot(egoMF)
+p10 <- emapplot(egoMF, pie_scale=1.5)
+p11 <- emapplot(egoMF,layout="kk")
+p12 <- emapplot(egoMF, pie_scale=1.5,layout="kk") 
+cowplot::plot_grid(p12, ncol=1)
+
+
+#######################################################################
+#Export tables
+
+install.packages("writexl")
+library(writexl)
+
+tabelaORA <- edox@result
+tabelaCC <- egoxCC@result
+tabelaBP <- egoxBP@result
+tabelaMF <- egoxMF@result
+
+write_xlsx(tabelaORA, "/Users/ranierics/Desktop/Analises/DataSets /IDPs/tabelaORA.xlsx")
+write_xlsx(tabelaCC, "/Users/ranierics/Downloads/Sarah/Arquivos do ClusterProfiler/tabelaCC.xlsx")
+write_xlsx(tabelaBP, "/Users/ranierics/Desktop/Analises/DataSets /Whole Blood datasets/GSE114179 Whole Blood (2)/Candida glabrata/BP.xlsx")
+write_xlsx(tabelaMF, "/Users/ranierics/Desktop/Analises/DataSets /PBMCs datasets/GSE42606 PBMCs (2)/tabelaMF.xlsx")
+
+
