@@ -1,0 +1,272 @@
+rm(list=ls())
+library(MSFA)
+library(ggplot2)
+
+data1 = read.table('/Users/devito.roberta/Desktop/proj_otavio2/data1.csv',sep=',', header=T)
+data2 = read.table('/Users/devito.roberta/Desktop/proj_otavio2/data2.csv',sep=',', header=T)
+
+
+rownames(data1)<- data1$Gene.symbol
+rownames(data2)<- data2$Gene.symbol
+
+data11 <- data1[,-1]
+data21 <- data2[,-1]
+
+dat1 <- t(data11)
+dat2 <- t(data21)
+
+X_s = list(dat1, dat2)
+
+k=3
+j_s=rep(2,2)
+p <- dim(dat1)[2]
+
+############################################
+### select the common dimension: K=1 or K=2
+obj1 <- sp_msfa(X_s = X_s, k = k, j_s = j_s, trace = FALSE, outputlevel = 4)
+
+str(obj1)
+fun_eigen <- eigen(obj1$SigmaPhi)
+val_eigen <- fun_eigen$values
+prop_var <- val_eigen / sum(val_eigen)
+choose_K <- length(which(prop_var > 0.05))
+
+############################################
+### select the study-dimension dimension: J_s=2
+S <- 2
+obj2 <- sp_msfa(X_s = X_s, k = 2, j_s = j_s, trace = FALSE, outputlevel = 3)
+str(obj2)
+choose_J <-list()
+for(s in 1:S){
+fun_eigenJ <- eigen(obj2$SigmaLambda[[s]])
+val_eigenJ <- fun_eigenJ$values
+prop_varJ <- val_eigenJ / sum(val_eigenJ)
+choose_J[[s]] <- length(which(prop_varJ > 0.05))
+}
+
+Lambda <- Lambda_s <- list()
+for(s in 1:S){
+fun_eigenJ <- eigen(obj2$SigmaLambda[[s]])
+val_matrixJ <- diag(sqrt(fun_eigenJ$values))
+loadJ <- fun_eigenJ$vec %*% val_matrixJ
+Lambda[[s]] <- loadJ[,1:j_s[s]]
+Lambda_s[[s]] <- varimax(Lambda[[s]])$load
+}
+
+
+#########################################
+#####repeat with the right dimension
+k1=2
+objK <- sp_msfa(X_s = X_s, k = 2, j_s = j_s, trace = FALSE, outputlevel = 4)
+
+
+fun_eigen <- eigen(objK$SigmaPhi)
+val_matrix <- diag(sqrt(fun_eigen$values))
+load <- fun_eigen$vec %*% val_matrix
+loadK_sim <- load[ ,1:k1]
+
+Phi <- varimax(loadK_sim)$load
+
+################################
+######save the object#########
+save(objK, obj1, obj2, Phi, Lambda_s, file='/Users/devito.roberta/Desktop/proj_otavio2/outputBMSFA.rda')
+
+
+
+
+#############################
+######perform the heatmap####
+zero3=matrix(0, p, 3)
+zero1=matrix(0, p, 1)
+
+stimaT <-cbind(Phi[,1],zero1, Phi[,2], zero3,  Lambda_s[[1]][,1], zero1, Lambda_s[[1]][,2], zero3, Lambda_s[[2]][,1], zero1, Lambda_s[[2]][,2])
+kTOT=ncol(stimaT)
+
+
+
+myLetters <- function(length.out) {
+  a <- rep(1:length.out, length.out = length.out)
+  grp <- rep(1,length.out)
+  aq <- vapply(seq_along(a), 
+         function(x) paste(rep(a[x], grp[x]), collapse = ""),
+         character(1L))
+  aord <- order(aq)
+  vapply(seq_along(aord), 
+         function(x) paste(rep(aord[x], grp[x]), collapse = ""),
+         character(1L))       
+} 
+
+
+dat_st1 <- data.frame(      Row = rep(data2$Gene.symbol, times = kTOT)    ,  Col = rep(x = myLetters(kTOT), each = p), Y=matrix(c(stimaT), p*kTOT, 1))
+pD1 <- ggplot(dat_st1, aes(Col , Row)) 
+pD1 <- pD1 +  ggtitle("") + theme(axis.ticks=element_blank(),panel.background = element_blank(), axis.text=element_text(size=14.4), axis.text.y = element_text(hjust=0), axis.title=element_text(size=14.2))  
+pD1 <- pD1 + scale_x_discrete("",labels=c("1"= expression(paste(phi)[1]),"2"= '', "3"= expression(paste(lambda)[2]^{WB}), "4"= "", "5" = "", "6"= "", "7" = expression(paste(lambda)[1]^{PB}),"8"= "", "9" = expression(paste(lambda)[2]^{PB}), "10"= '',  "11" = expression(paste(phi)[2]), "12"= '', "13"='', "14"='', "15"= expression(paste(lambda)[1]^{WB})))
+pD1 <- pD1 + scale_y_discrete("", limits=data2$Gene.symbol[p:1])
+pD1 <- pD1 + geom_tile(aes(fill=Y), colour="white")
+pD1 <- pD1 + scale_fill_gradientn(colours = c("darkorange3", "white", "dodgerblue4"), limits=c(-1, 1),'')
+pD1
+
+pdf("/Users/devito.roberta/Desktop/proj_otavio2/heatmapcommon_k3.pdf", width=8, height=8)
+pD1
+dev.off()
+
+
+
+#########################################
+######prepare the data for the network
+##########################################
+
+
+########################
+######for the common
+Sig_p <- objK$SigmaPhi
+
+rownames(Sig_p) <- data2$Gene.symbol
+colnames(Sig_p) <- data2$Gene.symbol
+
+df_p = as.data.frame(as.table(Sig_p))
+head(df_p)
+colnames(df_p)=c('Source', 'Target','Weight')
+
+
+
+###########choose a trheshold for the network, 0.6
+
+df1_p = subset(df_p, df_p$Weight < -0.6 | df_p$Weight > 0.6)
+length(df1_p$Weight)
+
+df1_p$Type = rep('Undirected', length(df1_p$Source))
+df1_p$AbsWeight  <- lapply(df1_p$Weight, abs)
+
+###df$sign very very slow
+df1_p$Sign <- lapply(df1_p$Weight, sign)
+head(df1_p)
+
+df1_p_AbsWeight <- as.numeric(df1_p$AbsWeight) 
+df1_p_Sign <- as.numeric(df1_p$Sign) 
+df1_p$Weight <-  NULL
+
+ids  = df1_p[,1]
+node_p = data.frame(ids, ids)
+colnames(node_p) = c('ID','Label')
+
+##########save the node
+
+write.table(node_p,'/Users/devito.roberta/Desktop/proj_otavio2/nodes_p.txt', sep='\t',row.names =F)
+
+
+
+names(df1_p)[5]  <- paste('Weight')
+head(df1_p)
+
+
+###########save the edges
+
+newdf_p <- data.frame(lapply(df1_p, as.character), stringAsFactors = FALSE)
+write.table(newdf_p,'/Users/devito.roberta/Desktop/proj_otavio2/edges06_p.txt', sep='\t',row.names =F, col.names=T)
+
+
+
+
+
+
+
+###########################
+#######now for WB########
+Sig_wb <- obj2$SigmaLambda[[1]]
+
+rownames(Sig_wb) <- data2$Gene.symbol
+colnames(Sig_wb) <- data2$Gene.symbol
+
+df_wb = as.data.frame(as.table(Sig_wb))
+head(df_wb)
+colnames(df_wb)=c('Source', 'Target','Weight')
+
+
+
+###########choose a trheshold for the network, 0.6
+
+df1_wb = subset(df_wb, df_wb$Weight < -0.5 | df_wb$Weight > 0.5)
+length(df1_wb$Weight)
+
+df1_wb$Type = rep('Undirected', length(df1_wb$Source))
+df1_wb$AbsWeight  <- lapply(df1_wb$Weight, abs)
+
+###df$sign very very slow
+df1_wb$Sign <- lapply(df1_wb$Weight, sign)
+head(df1_wb)
+
+df1_wb_AbsWeight <- as.numeric(df1_wb$AbsWeight) 
+df1_wb_Sign <- as.numeric(df1_wb$Sign) 
+df1_wb$Weight <-  NULL
+
+ids  = df1_wb[,1]
+node_wb = data.frame(ids, ids)
+colnames(node_wb) = c('ID','Label')
+
+##########save the node
+
+write.table(node_wb,'/Users/devito.roberta/Desktop/proj_otavio2/nodes_wb.txt', sep='\t',row.names =F)
+
+
+
+names(df1_wb)[5]  <- paste('Weight')
+head(df1_wb)
+
+
+###########save the edges
+
+newdf_wb <- data.frame(lapply(df1_wb, as.character), stringAsFactors = FALSE)
+write.table(newdf_wb,'/Users/devito.roberta/Desktop/proj_otavio2/edges06_wb.txt', sep='\t',row.names =F, col.names=T)
+
+
+
+
+#########################
+#######now for PB######
+Sig_pb <- obj2$SigmaLambda[[2]]
+
+rownames(Sig_pb) <- data2$Gene.symbol
+colnames(Sig_pb) <- data2$Gene.symbol
+
+df_pb = as.data.frame(as.table(Sig_pb))
+head(df_pb)
+colnames(df_pb)=c('Source', 'Target','Weight')
+
+
+
+###########choose a trheshold for the network, 0.6
+
+df1_pb = subset(df_pb, df_pb$Weight < -0.4 | df_pb$Weight > 0.4)
+length(df1_pb$Weight)
+
+df1_pb$Type = rep('Undirected', length(df1_pb$Source))
+df1_pb$AbsWeight  <- lapply(df1_pb$Weight, abs)
+
+###df$sign very very slow
+df1_pb$Sign <- lapply(df1_pb$Weight, sign)
+head(df1_pb)
+
+df1_pb_AbsWeight <- as.numeric(df1_pb$AbsWeight) 
+df1_pb_Sign <- as.numeric(df1_pb$Sign) 
+df1_pb$Weight <-  NULL
+
+ids  = df1_pb[,1]
+node_pb = data.frame(ids, ids)
+colnames(node_pb) = c('ID','Label')
+
+##########save the node
+
+write.table(node_pb,'/Users/devito.roberta/Desktop/proj_otavio2/nodes_pb.txt', sep='\t',row.names =F)
+
+
+
+names(df1_pb)[5]  <- paste('Weight')
+head(df1_pb)
+
+
+###########save the edges
+
+newdf_pb <- data.frame(lapply(df1_pb, as.character), stringAsFactors = FALSE)
+write.table(newdf_pb,'/Users/devito.roberta/Desktop/proj_otavio2/edges06_pb.txt', sep='\t',row.names =F, col.names=T)
+
